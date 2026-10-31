@@ -110,10 +110,15 @@ C({
 C({
   id: 'parkland', cat: ['farma', 'eletro'], name: 'Parkland (queimados)', desc: 'Reposição volêmica nas primeiras 24 h',
   fields: [num('peso', 'Peso', 'kg'), num('scq', 'Superfície corporal queimada (2º/3º grau)', '%'), sel('k', 'Fórmula', [['Parkland 4 mL/kg/%', 4], ['Brooke modificada 2 mL/kg/%', 2]])],
-  calc: ({ peso, scq, k }) => {
+  calc: ({ peso, scq, k, _ped }) => {
     if (!ok(peso, scq)) return null;
     const t = k * peso * scq;
-    return { label: 'Ringer lactato em 24 h', value: f(t, 0), unit: 'mL', extra: [['Primeiras 8 h', f(t / 2, 0) + ' mL (' + f(t / 16, 0) + ' mL/h)'], ['16 h seguintes', f(t / 2, 0) + ' mL (' + f(t / 32, 0) + ' mL/h)']],
-      interp: 'Ajustar pela diurese: 0,5–1 mL/kg/h', level: 'ok' };
+    const ex = [['Primeiras 8 h', f(t / 2, 0) + ' mL (' + f(t / 16, 0) + ' mL/h)'], ['16 h seguintes', f(t / 2, 0) + ' mL (' + f(t / 32, 0) + ' mL/h)']];
+    if (_ped) {
+      const man = peso <= 10 ? 4 * peso : peso <= 20 ? 40 + 2 * (peso - 10) : 60 + (peso - 20);
+      ex.push(['+ Manutenção (Holliday-Segar)', f(Math.min(man, 100), 0) + ' mL/h com glicose']);
+    }
+    return { label: 'Ringer lactato em 24 h', value: f(t, 0), unit: 'mL', extra: ex,
+      interp: _ped ? 'Ajustar pela diurese: 1 mL/kg/h em crianças (< 30 kg)' : 'Ajustar pela diurese: 0,5–1 mL/kg/h', level: 'ok' };
   },
 });

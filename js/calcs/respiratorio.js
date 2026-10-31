@@ -2,9 +2,11 @@
 C({
   id: 'pafi', cat: 'resp', name: 'PaO₂/FiO₂', desc: 'Relação PaFi e classificação de Berlim da SDRA',
   fields: [num('po2', 'PaO₂', 'mmHg'), num('fio2', 'FiO₂', '%', { def: 21 })],
-  calc: ({ po2, fio2 }) => {
+  calc: ({ po2, fio2, _ped }) => {
     if (!ok(po2, fio2) || fio2 < 21) return null;
     const r = po2 / (fio2 / 100);
+    if (_ped) return { value: f(r, 0), unit: 'mmHg', extra: [['Em ventilação invasiva', 'Use OI/OSI (calculadora SDRA pediátrica)']],
+      ...interp(r, [[300.01, 'Acima do critério de PARDS', 'ok'], [100.01, 'PARDS leve/moderada em VNI (PaFi ≤ 300)', 'warn'], [0, 'PARDS grave em VNI (PaFi ≤ 100)', 'bad']]) };
     return { value: f(r, 0), unit: 'mmHg', ...interp(r, [[300.01, 'Sem critério de SDRA', 'ok'], [200.01, 'SDRA leve (200–300)', 'warn'], [100.01, 'SDRA moderada (100–200)', 'bad'], [0, 'SDRA grave (≤ 100)', 'bad']]) };
   },
 });
@@ -12,9 +14,11 @@ C({
 C({
   id: 'spfi', cat: 'resp', name: 'SpO₂/FiO₂', desc: 'Relação SpFi e equivalência com PaFi',
   fields: [num('spo2', 'SpO₂', '%'), num('fio2', 'FiO₂', '%', { def: 21 })],
-  calc: ({ spo2, fio2 }) => {
+  calc: ({ spo2, fio2, _ped }) => {
     if (!ok(spo2, fio2) || fio2 < 21) return null;
     const r = spo2 / (fio2 / 100);
+    if (_ped) return { value: f(r, 0), ...(spo2 > 97 ? { interp: 'SpO₂ > 97%: não usar para PARDS (titular para 88–97%)', level: 'warn' }
+      : interp(r, [[250.01, 'Acima do critério de PARDS', 'ok'], [150.01, 'PARDS leve/moderada em VNI (SpFi ≤ 250)', 'warn'], [0, 'PARDS grave em VNI (SpFi ≤ 150)', 'bad']])) };
     return { value: f(r, 0), extra: [['PaFi estimada (Rice)', f((r - 64) / 0.84, 0) + ' mmHg']], ...(spo2 > 97 ? { interp: 'SpO₂ > 97%: relação pouco confiável', level: 'warn' } : interp(r, [[315, 'Equivale a PaFi > 300', 'ok'], [235, 'Equivale a PaFi 200–300', 'warn'], [0, 'Equivale a PaFi < 200', 'bad']])) };
   },
 });
@@ -33,10 +37,16 @@ C({
 
 C({
   id: 'rox', cat: 'resp', name: 'Índice ROX', desc: 'Preditor de falha da cânula nasal de alto fluxo',
-  fields: [num('spo2', 'SpO₂', '%'), num('fio2', 'FiO₂', '%'), num('fr', 'Frequência respiratória', 'irpm'), sel('h', 'Tempo de CNAF', [['2 horas', 2.85], ['6 horas', 3.47], ['12 horas', 3.85]])],
-  calc: ({ spo2, fio2, fr, h }) => {
+  fields: [num('spo2', 'SpO₂', '%'), num('fio2', 'FiO₂', '%'), num('fr', 'Frequência respiratória', 'irpm'), sel('h', 'Tempo de CNAF', [['2 horas', 2.85], ['6 horas', 3.47], ['12 horas', 3.85]], { only: 'adulto' }),
+    num('fc', 'Frequência cardíaca (para ROX-HR)', 'bpm', { only: 'ped' })],
+  calc: ({ spo2, fio2, fr, h, fc, _ped }) => {
     if (!ok(spo2, fio2, fr) || fr <= 0) return null;
     const r = spo2 / (fio2 / 100) / fr;
+    if (_ped) {
+      const ex = [['Referência (UTI pediátrica mista)', '< 5,52 em 60 min associado a falha'], ['Referência (bronquiolite, 12 h)', 'corte entre 6,5 e 7,2']];
+      if (ok(fc) && fc > 0) ex.unshift(['ROX-HR', f(r / fc * 100, 2) + (r / fc * 100 < 3 ? ' (< 3: associado a falha, ≤ 24 meses)' : '')]);
+      return { value: f(r, 2), extra: ex, interp: 'Sem ponto de corte pediátrico validado: usar como tendência, junto com a avaliação clínica', level: 'warn' };
+    }
     return { value: f(r, 2), ...(r >= 4.88 ? { interp: 'ROX ≥ 4,88: baixo risco de intubação', level: 'ok' } : r < h ? { interp: `ROX < ${f(h, 2)}: alto risco de falha – considerar intubação`, level: 'bad' } : { interp: 'Zona intermediária: reavaliar em 1–2 h', level: 'warn' }) };
   },
 });
@@ -115,10 +125,12 @@ C({
 
 C({
   id: 'oi', cat: 'resp', name: 'Índice de oxigenação / AOI', desc: 'IO = Pmédia × FiO₂ / PaO₂; AOI = idade + IO',
-  fields: [num('pm', 'Pressão média de vias aéreas', 'cmH₂O'), num('fio2', 'FiO₂', '%'), num('po2', 'PaO₂', 'mmHg'), num('idade', 'Idade (para AOI)', 'anos')],
+  fields: [num('pm', 'Pressão média de vias aéreas', 'cmH₂O'), num('fio2', 'FiO₂', '%'), num('po2', 'PaO₂', 'mmHg'), num('idade', 'Idade (para AOI)', 'anos', { only: 'adulto' })],
   calc: (v) => {
     if (!ok(v.pm, v.fio2, v.po2)) return null;
     const io = v.pm * v.fio2 / v.po2;
+    if (v._ped) return { label: 'Índice de oxigenação', value: f(io, 1),
+      ...interp(io, [[16, 'PARDS grave (OI ≥ 16)', 'bad'], [4, 'PARDS leve/moderada (OI 4–16)', 'warn'], [0, 'Abaixo do critério de PARDS (OI < 4)', 'ok']]) };
     const aoi = ok(v.idade) ? v.idade + io : null;
     return { label: 'Índice de oxigenação', value: f(io, 1),
       extra: aoi != null ? [['AOI score', f(aoi, 1)], ['Mortalidade (AOI)', aoi >= 80 ? '≥ 80%' : aoi >= 60 ? '≥ 50%' : '< 50%']] : [],
@@ -189,7 +201,7 @@ C({
     if (ok(v.ppico)) ex.push(['Complacência dinâmica', f(v.vt / (v.ppico - v.peep), 1) + ' mL/cmH₂O']);
     if (ok(v.ppico, v.fluxo) && v.fluxo > 0) ex.push(['Resistência de vias aéreas', f((v.ppico - v.pplat) / (v.fluxo / 60), 1) + ' cmH₂O/L/s']);
     return { label: 'Driving pressure', value: f(dp, 0), unit: 'cmH₂O', extra: ex,
-      ...(dp > 15 ? { interp: 'ΔP > 15 cmH₂O: associado a maior mortalidade', level: 'bad' } : v.pplat > 30 ? { interp: 'Platô > 30 cmH₂O', level: 'bad' } : { interp: 'ΔP ≤ 15 e platô adequado', level: 'ok' }) };
+      ...(dp > 15 ? { interp: 'ΔP > 15 cmH₂O: associado a maior mortalidade', level: 'bad' } : v.pplat > (v._ped ? 28 : 30) ? { interp: `Platô > ${v._ped ? 28 : 30} cmH₂O`, level: 'bad' } : { interp: 'ΔP ≤ 15 e platô adequado', level: 'ok' }) };
   },
 });
 
@@ -210,8 +222,13 @@ C({
 
 C({
   id: 'pbw', cat: ['resp', 'nutri'], name: 'Peso predito e volume corrente', desc: 'Ventilação protetora (ARDSNet)',
-  fields: [num('alt', 'Altura', 'cm'), sexo()],
-  calc: ({ alt, sexo }) => {
+  fields: [num('alt', 'Altura', 'cm', { only: 'adulto' }), sexo('sexo', { only: 'adulto' }), num('peso', 'Peso ideal para a idade (ou peso real)', 'kg', { only: 'ped' })],
+  calc: ({ alt, sexo, peso, _ped }) => {
+    if (_ped) {
+      if (!ok(peso)) return null;
+      return { label: 'VC alvo (6–8 mL/kg)', value: f(peso * 6, 0) + '–' + f(peso * 8, 0), unit: 'mL', extra: [['4 mL/kg', f(peso * 4, 0) + ' mL'], ['6 mL/kg', f(peso * 6, 0) + ' mL'], ['8 mL/kg', f(peso * 8, 0) + ' mL'], ['Platô', '≤ 28 cmH₂O (≤ 32 se parede torácica rígida)']],
+        interp: 'PALICC-2: 6–8 mL/kg; 4–6 mL/kg se necessário para manter platô e driving pressure', level: 'ok' };
+    }
     if (!ok(alt)) return null;
     const p = pesoIdeal(alt, sexo);
     return { label: 'Peso predito', value: f(p, 1), unit: 'kg', extra: [['VC 4 mL/kg', f(p * 4, 0) + ' mL'], ['VC 6 mL/kg', f(p * 6, 0) + ' mL'], ['VC 8 mL/kg', f(p * 8, 0) + ' mL']], interp: 'Volume corrente protetor: 6 mL/kg (4–8)', level: 'ok' };
@@ -220,9 +237,15 @@ C({
 
 C({
   id: 'tobin', cat: ['resp', 'func'], name: 'Índice de Tobin (IRRS)', desc: 'Índice de respiração rápida e superficial – desmame',
-  fields: [num('fr', 'Frequência respiratória', 'irpm'), num('vt', 'Volume corrente', 'mL')],
-  calc: ({ fr, vt }) => {
+  fields: [num('fr', 'Frequência respiratória', 'irpm'), num('vt', 'Volume corrente', 'mL'), num('peso', 'Peso', 'kg', { only: 'ped' })],
+  calc: ({ fr, vt, peso, _ped }) => {
     if (!ok(fr, vt) || vt <= 0) return null;
+    if (_ped) {
+      if (!ok(peso) || peso <= 0) return null;
+      const ri = fr / (vt / peso);
+      return { label: 'IRRS indexado ao peso', value: f(ri, 1), unit: 'irpm/mL/kg', extra: [['VC por kg', f(vt / peso, 1) + ' mL/kg'], ['Cortes na literatura', '4,6 a 8 (mais citado: 6,7)']],
+        ...interp(ri, [[8, 'Alto risco de falha na extubação', 'bad'], [6.7, 'Risco aumentado de falha (≥ 6,7)', 'warn'], [0, 'Favorável à extubação (< 6,7)', 'ok']]) };
+    }
     const r = fr / (vt / 1000);
     return { value: f(r, 0), unit: 'irpm/L', ...interp(r, [[105, 'IRRS ≥ 105: alta probabilidade de falha no desmame', 'bad'], [0, 'IRRS < 105: preditor de sucesso no desmame', 'ok']]) };
   },

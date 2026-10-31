@@ -54,6 +54,24 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .icon-btn { display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 12px; background: transparent; cursor: pointer; color: var(--muted); }
 .icon-btn:hover { background: var(--surface-2); color: var(--text); }
 .icon-btn[hidden] { display: none; }
+.mode-btn { flex: none; height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; font-size: 13.5px; font-weight: 600; white-space: nowrap; }
+.mode-btn.ped { background: var(--warn-soft); border-color: var(--warn); color: var(--warn); }
+.brand { white-space: nowrap; min-width: 0; }
+@media (max-width: 420px) { .brand .logo { display: none; } }
+@media (max-width: 360px) { .brand { font-size: 15.5px; } .mode-btn { padding: 0 9px; font-size: 12.5px; } .appbar { gap: 4px; } }
+
+/* Faixa etária */
+.badge { display: inline-block; vertical-align: 2px; margin-left: 4px; font-size: 10.5px; font-weight: 600; padding: 1px 7px; border-radius: 999px; }
+.age-adult { background: var(--surface-2); color: var(--muted); }
+.age-ped { background: var(--warn-soft); color: var(--warn); }
+.age-both { background: var(--ok-soft); color: var(--ok); }
+.age-all { background: var(--surface-2); color: var(--muted); }
+.card.dim { opacity: .62; }
+.note { margin-top: 12px; padding: 10px 12px; border-radius: 12px; font-size: 14px; }
+.note.warn { background: var(--warn-soft); color: var(--warn); }
+.note.info { background: var(--accent-soft); color: var(--accent); }
+.note a, .linkbtn { color: inherit; font-weight: 700; text-decoration: underline; }
+.linkbtn { border: 0; background: none; padding: 0; cursor: pointer; font-size: inherit; }
 
 main { max-width: 1080px; margin: 0 auto; padding: 0 16px 48px; }
 
@@ -163,7 +181,7 @@ select option { background: var(--surface); color: var(--text); }
 .r-copy { display: none; }
 .r-extra { display: none; margin: 8px 0 0; max-height: 40vh; overflow: auto; }
 .result.open .r-extra { display: block; }
-.result.open .r-copy { display: inline-block; }
+.result.open .r-copy, .result.no-extra .r-copy { display: inline-block; }
 .r-extra div { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-top: 1px solid var(--border); font-size: 14px; }
 .r-extra dt { color: var(--muted); }
 .r-extra dd { margin: 0; font-weight: 600; text-align: right; min-width: 0; overflow-wrap: anywhere; }

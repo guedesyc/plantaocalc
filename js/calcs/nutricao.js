@@ -6,8 +6,13 @@ const hb = (v) => (v.sexo === 'F' ? 655.1 + 9.563 * v.peso + 1.85 * v.alt - 4.67
 C({
   id: 'antropo', cat: ['nutri', 'farma'], name: 'Antropometria e peso de dosificação', desc: 'Peso ideal, %PI, IMC, superfície corporal, massa magra e peso ajustado',
   fields: [num('peso', 'Peso real', 'kg'), num('alt', 'Altura', 'cm'), sexo()],
-  calc: ({ peso, alt, sexo }) => {
+  calc: ({ peso, alt, sexo, _ped }) => {
     if (!ok(peso, alt)) return null;
+    if (_ped) {
+      const im = peso / (alt / 100) ** 2;
+      return { label: 'IMC', value: f(im, 1), unit: 'kg/m²', extra: [['Superfície corporal (Mosteller)', f(asc(peso, alt), 2) + ' m²']],
+        interp: 'Em crianças, interpretar o IMC por percentil ou escore-z para idade e sexo (curvas OMS)', level: 'neutral' };
+    }
     const pi = pesoIdeal(alt, sexo), imc = peso / (alt / 100) ** 2, mm = sexo === 'F' ? 0.252 * peso + 0.473 * alt - 48.3 : 0.407 * peso + 0.267 * alt - 19.2;
     const dub = 0.007184 * peso ** 0.425 * alt ** 0.725;
     return { label: 'IMC', value: f(imc, 1), unit: 'kg/m²',

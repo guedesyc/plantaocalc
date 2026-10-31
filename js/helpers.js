@@ -13,6 +13,7 @@ window.CATS = [
   { id: 'indic', name: 'Prognóstico e UTI', icon: '📊' },
   { id: 'neuro', name: 'Neurológico', icon: '🧠' },
   { id: 'func', name: 'Funcional e Dependência', icon: '🧍' },
+  { id: 'ped', name: 'Pediatria', icon: '🧸' },
 ];
 window.CALCS = [];
 
@@ -24,7 +25,7 @@ const num = (id, label, unit = '', o = {}) => ({ t: 'num', id, label, unit, ...o
 const sel = (id, label, opts, o = {}) => ({ t: 'sel', id, label, opts, ...o });
 const chk = (id, label, pts = 1, o = {}) => ({ t: 'chk', id, label, pts, ...o });
 const head = (label) => ({ t: 'head', label });
-const sexo = (id = 'sexo') => sel(id, 'Sexo', [['Masculino', 'M'], ['Feminino', 'F']]);
+const sexo = (id = 'sexo', o = {}) => sel(id, 'Sexo', [['Masculino', 'M'], ['Feminino', 'F']], o);
 /* Opções 0..n numeradas: pts(['texto0','texto1',...]) */
 const pts = (arr, start = 0) => arr.map((t, i) => [t, i + start]);
 

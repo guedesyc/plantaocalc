@@ -86,8 +86,10 @@ C({
 C({
   id: 'glasgow', cat: 'neuro', name: 'Escala de Coma de Glasgow', desc: 'Nível de consciência (com resposta pupilar opcional)', score: true,
   fields: [sel('o', 'Abertura ocular', [['4 – Espontânea', 4], ['3 – Ao som / voz', 3], ['2 – À pressão / dor', 2], ['1 – Ausente', 1]]),
-    sel('v', 'Resposta verbal', [['5 – Orientada', 5], ['4 – Confusa', 4], ['3 – Palavras', 3], ['2 – Sons', 2], ['1 – Ausente', 1]]),
-    sel('m', 'Resposta motora', [['6 – Obedece comandos', 6], ['5 – Localiza', 5], ['4 – Flexão normal (retirada)', 4], ['3 – Flexão anormal (decorticação)', 3], ['2 – Extensão (descerebração)', 2], ['1 – Ausente', 1]])],
+    sel('v', 'Resposta verbal', [['5 – Orientada', 5], ['4 – Confusa', 4], ['3 – Palavras', 3], ['2 – Sons', 2], ['1 – Ausente', 1]],
+      { labelPed: 'Resposta verbal (lactente < 2 anos)', optsPed: [['5 – Balbucia, sorri, segue objetos', 5], ['4 – Choro irritado, consolável', 4], ['3 – Chora à dor, inconsolável', 3], ['2 – Geme à dor', 2], ['1 – Ausente', 1]] }),
+    sel('m', 'Resposta motora', [['6 – Obedece comandos', 6], ['5 – Localiza', 5], ['4 – Flexão normal (retirada)', 4], ['3 – Flexão anormal (decorticação)', 3], ['2 – Extensão (descerebração)', 2], ['1 – Ausente', 1]],
+      { labelPed: 'Resposta motora (lactente < 2 anos)', optsPed: [['6 – Movimentos espontâneos e propositais', 6], ['5 – Retira ao toque', 5], ['4 – Retira à dor', 4], ['3 – Flexão anormal (decorticação)', 3], ['2 – Extensão (descerebração)', 2], ['1 – Ausente', 1]] })],
   calc: ({ _t, o, v, m }) => ({ value: _t, unit: '/ 15', extra: [['Fórmula', `O${o} V${v} M${m}`]], ...interp(_t, [[13, 'TCE leve (13–15)', 'ok'], [9, 'TCE moderado (9–12)', 'warn'], [0, 'TCE grave (≤ 8): considerar via aérea definitiva', 'bad']]) }),
 });
 

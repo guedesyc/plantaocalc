@@ -14,6 +14,24 @@
   let favs = store.get('favs', []);
   let recents = store.get('recents', []);
   const ui = { q: '', cat: store.get('cat', 'all') };
+  let mode = store.get('mode', 'adulto'); // 'adulto' | 'ped'
+  let resultOpen = false;
+  const isPed = () => mode === 'ped';
+  /* Campo visível no modo atual (fl.only: 'ped' | 'adulto') */
+  const shown = (fl) => !fl.only || (fl.only === 'ped') === isPed();
+
+  /* Etiqueta de faixa etária de cada calculadora */
+  const AGE_TAG = { adulto: ['Adultos', 'age-adult'], ped: ['Pediatria', 'age-ped'], ambos: ['Adulto e pediátrico', 'age-both'], todas: ['Todas as idades', 'age-all'] };
+
+  /* ---------- Modo Adulto / Pediátrico ---------- */
+  const modeBtn = $('#modeBtn');
+  const paintMode = () => {
+    modeBtn.textContent = isPed() ? '🧸 Pediátrico' : '🧑 Adulto';
+    modeBtn.classList.toggle('ped', isPed());
+    modeBtn.setAttribute('aria-label', 'Modo atual: ' + (isPed() ? 'pediátrico' : 'adulto') + '. Tocar para alternar');
+  };
+  paintMode();
+  modeBtn.onclick = () => { mode = isPed() ? 'adulto' : 'ped'; store.set('mode', mode); paintMode(); route(); };
 
   const norm = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -30,7 +48,11 @@
 
   /* ---------- Página inicial ---------- */
   const star = (id) => `<button class="star ${favs.includes(id) ? 'on' : ''}" data-fav="${id}" aria-label="Favoritar">${favs.includes(id) ? '★' : '☆'}</button>`;
-  const card = (c) => `<a class="card" href="#/c/${c.id}"><div class="card-body"><span class="card-title">${c.name}</span><span class="card-desc">${c.desc}</span></div>${star(c.id)}</a>`;
+  const card = (c) => {
+    const badge = isPed() && c.ages === 'adulto' ? '<span class="badge age-adult">só adulto</span>' : !isPed() && c.ages === 'ped' ? '<span class="badge age-ped">pediatria</span>' : '';
+    const dim = (isPed() && c.ages === 'adulto') || (!isPed() && c.ages === 'ped') ? ' dim' : '';
+    return `<a class="card${dim}" href="#/c/${c.id}"><div class="card-body"><span class="card-title">${c.name} ${badge}</span><span class="card-desc">${c.desc}</span></div>${star(c.id)}</a>`;
+  };
 
   function renderHome() {
     $('#backBtn').hidden = true;
@@ -123,7 +145,9 @@
 
   /* ---------- Página da calculadora ---------- */
   function fieldHtml(c, fl) {
+    if (!shown(fl)) return '';
     const fid = `f-${c.id}-${fl.id}`;
+    if (isPed()) fl = { ...fl, label: fl.labelPed ?? fl.label, opts: fl.optsPed ?? fl.opts };
     if (fl.t === 'head') return `<h3 class="fhead">${fl.label}</h3>`;
     if (fl.t === 'num') {
       return `<label class="field" for="${fid}"><span class="flabel">${fl.label}</span>
@@ -153,9 +177,10 @@
   };
 
   function readValues(c, root) {
-    const v = {};
+    const v = { _ped: isPed() };
     let total = 0;
     for (const fl of c.fields) {
+      if (!shown(fl)) { v[fl.id] = fl.t === 'chk' ? false : NaN; continue; }
       if (fl.t === 'num') v[fl.id] = parseVal($(`[data-id="${fl.id}"]`, root).value.trim());
       else if (fl.t === 'sel') {
         const el = $(`[data-id="${fl.id}"]`, root);
@@ -178,13 +203,25 @@
     store.set('recents', recents);
     $('#backBtn').hidden = false;
     document.title = c.name + ' · Plantão Calc';
-    const cats = catsOf(c).map((k) => `<a class="tag" href="#/" data-gocat="${k}">${catById[k].icon} ${catById[k].name}</a>`).join('');
+    resultOpen = false;
+    const [ageTxt, ageCls] = AGE_TAG[c.ages] || AGE_TAG.todas;
+    const cats = `<span class="tag ${ageCls}">${ageTxt}</span>` + catsOf(c).map((k) => `<a class="tag" href="#/" data-gocat="${k}">${catById[k].icon} ${catById[k].name}</a>`).join('');
+    const alt = c.pedAlt && byId[c.pedAlt];
+    let note = '';
+    if (isPed() && c.ages === 'adulto') {
+      note = `<div class="note warn"><b>Validado apenas em adultos.</b> ${c.pedNote || 'Os pontos de corte podem não se aplicar a crianças.'}${alt ? ` Use <a href="#/c/${alt.id}">${alt.name}</a>.` : ''}</div>`;
+    } else if (!isPed() && c.ages === 'ped') {
+      note = `<div class="note info">Escala pediátrica. <button type="button" class="linkbtn" id="toPed">Mudar para o modo pediátrico</button></div>`;
+    } else if (isPed() && c.ages === 'ambos') {
+      note = `<div class="note info">Modo pediátrico: ${c.pedNote || 'campos e pontos de corte ajustados para crianças.'}</div>`;
+    }
     app.innerHTML = `
       <article class="calc">
         <header class="calc-head">
           <div class="tags">${cats}</div>
           <div class="title-row"><h1>${c.name}</h1>${star(c.id)}</div>
           <p>${c.desc}</p>
+          ${note}
         </header>
         <div class="calc-grid">
           <form class="fields" id="form" autocomplete="off" onsubmit="return false">${c.fields.map((fl) => fieldHtml(c, fl)).join('')}
@@ -215,6 +252,8 @@
       if (nx) nx.focus(); else e.target.blur();
     });
     $('#reset').onclick = () => { renderCalc(id); };
+    const toPed = $('#toPed');
+    if (toPed) toPed.onclick = () => { mode = 'ped'; store.set('mode', mode); paintMode(); renderCalc(id); };
     app.querySelectorAll('[data-gocat]').forEach((a) => (a.onclick = () => { ui.cat = a.dataset.gocat; ui.q = ''; store.set('cat', ui.cat); }));
     update();
   }
@@ -224,24 +263,38 @@
     let r = null;
     try { r = c.calc(readValues(c, form), c); } catch (err) { console.error(err); r = null; }
     if (!r) {
+      box.dataset.html = '';
       box.className = 'result empty';
       box.innerHTML = `<div class="r-main"><span class="r-label">Resultado</span><span class="r-wait">Preencha os campos</span></div>`;
       return;
     }
     const lvl = r.level || 'neutral';
-    box.className = 'result lvl-' + lvl;
     const extra = (r.extra || []).filter(([, val]) => val !== '' && val != null);
-    box.innerHTML = `
+    const html = `
       <div class="r-main">
         <span class="r-label">${r.label || 'Resultado'}</span>
         <span class="r-value">${r.value}${r.unit ? `<small>${r.unit}</small>` : ''}</span>
         ${r.interp ? `<span class="r-interp">${r.interp}</span>` : ''}
       </div>
-      ${extra.length ? `<button type="button" class="r-toggle" id="rtoggle" aria-expanded="false">Detalhes <span>▾</span></button>
+      ${extra.length ? `<button type="button" class="r-toggle" id="rtoggle" aria-expanded="${resultOpen}">${resultOpen ? 'Ocultar detalhes' : 'Detalhes'} <span>▾</span></button>
       <dl class="r-extra">${extra.map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('')}</dl>` : ''}
       <button type="button" class="r-copy" id="rcopy">Copiar resultado</button>`;
+    // Não redesenha se nada mudou: um "change" disparado ao tirar o foco do campo destruiria o botão no meio do toque
+    if (box.dataset.html === html) return;
+    box.dataset.html = html;
+    box.className = `result lvl-${lvl}${resultOpen ? ' open' : ''}${extra.length ? '' : ' no-extra'}`;
+    box.innerHTML = html;
     const tg = $('#rtoggle');
-    if (tg) tg.onclick = () => { const o = box.classList.toggle('open'); tg.setAttribute('aria-expanded', String(o)); };
+    if (tg) tg.onclick = () => {
+      resultOpen = box.classList.toggle('open');
+      tg.setAttribute('aria-expanded', String(resultOpen));
+      tg.firstChild.textContent = resultOpen ? 'Ocultar detalhes ' : 'Detalhes ';
+      box.dataset.html = '';
+      if (resultOpen) {
+        const over = box.getBoundingClientRect().bottom - innerHeight + 12;
+        if (over > 0) scrollBy({ top: over, behavior: 'smooth' });
+      }
+    };
     $('#rcopy').onclick = async () => {
       const txt = `${c.name}: ${r.label ? r.label + ' ' : ''}${String(r.value).replace(/<[^>]+>/g, '')} ${r.unit || ''}${r.interp ? ' – ' + r.interp : ''}\n` + extra.map(([k, val]) => `${k}: ${val}`).join('\n');
       try { await navigator.clipboard.writeText(txt.trim()); $('#rcopy').textContent = 'Copiado ✓'; } catch { $('#rcopy').textContent = 'Não foi possível copiar'; }

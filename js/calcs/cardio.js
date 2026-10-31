@@ -1,27 +1,35 @@
 /* ===== Cardiovascular ===== */
 C({
   id: 'pam', cat: 'cardio', name: 'PAM', desc: 'Pressão arterial média',
-  fields: [num('pas', 'PA sistólica', 'mmHg'), num('pad', 'PA diastólica', 'mmHg')],
-  calc: ({ pas, pad }) => {
+  fields: [num('pas', 'PA sistólica', 'mmHg'), num('pad', 'PA diastólica', 'mmHg'), num('meses', 'Idade', 'meses', { only: 'ped' })],
+  calc: ({ pas, pad, meses, _ped }) => {
     if (!ok(pas, pad)) return null;
     const v = (pas + 2 * pad) / 3;
-    return { value: f(v, 0), unit: 'mmHg', extra: [['Pressão de pulso', f(pas - pad, 0) + ' mmHg']],
+    const ex = [['Pressão de pulso', f(pas - pad, 0) + ' mmHg']];
+    if (_ped) {
+      if (!ok(meses)) return { value: f(v, 0), unit: 'mmHg', extra: ex, interp: 'Informe a idade para interpretar', level: 'neutral' };
+      const min = pamMinPed[faixaPed(meses)];
+      ex.push(['PAM mínima para a idade (PELOD-2)', min + ' mmHg']);
+      return { value: f(v, 0), unit: 'mmHg', extra: ex, ...(v < min ? { interp: 'PAM abaixo do limite para a idade', level: 'bad' } : { interp: 'PAM acima do limite inferior para a idade', level: 'ok' }) };
+    }
+    return { value: f(v, 0), unit: 'mmHg', extra: ex,
       ...interp(v, [[110, 'PAM elevada', 'warn'], [65, 'PAM adequada (≥ 65 mmHg)', 'ok'], [0, 'PAM baixa: risco de hipoperfusão', 'bad']]) };
   },
 });
 
 C({
   id: 'qtc', cat: 'cardio', name: 'QTc', desc: 'Intervalo QT corrigido (Bazett, Fridericia, Framingham, Hodges)',
-  fields: [num('qt', 'QT medido', 'ms'), num('fc', 'Frequência cardíaca', 'bpm'), sexo()],
-  calc: ({ qt, fc, sexo }) => {
+  fields: [num('qt', 'QT medido', 'ms'), num('fc', 'Frequência cardíaca', 'bpm'), sexo('sexo', { only: 'adulto' })],
+  calc: ({ qt, fc, sexo, _ped }) => {
     if (!ok(qt, fc) || fc <= 0) return null;
     const rr = 60 / fc;
     const baz = qt / Math.sqrt(rr), fri = qt / Math.cbrt(rr), fra = qt + 154 * (1 - rr), hod = qt + 1.75 * (fc - 60);
-    const lim = sexo === 'F' ? 460 : 450;
+    const lim = _ped ? 460 : sexo === 'F' ? 460 : 450;
     return {
       label: 'QTc (Bazett)', value: f(baz, 0), unit: 'ms',
       extra: [['Fridericia', f(fri, 0) + ' ms'], ['Framingham', f(fra, 0) + ' ms'], ['Hodges', f(hod, 0) + ' ms'], ['Intervalo RR', f(rr, 2) + ' s']],
       ...(baz > 500 ? { interp: 'QTc > 500 ms: alto risco de torsades de pointes', level: 'bad' }
+        : _ped && baz >= 440 && baz <= 460 ? { interp: 'QTc limítrofe (440–460 ms)', level: 'warn' }
         : baz > lim ? { interp: `QTc prolongado (> ${lim} ms)`, level: 'warn' }
         : { interp: 'QTc normal', level: 'ok' }),
     };

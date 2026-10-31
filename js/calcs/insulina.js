@@ -6,9 +6,12 @@ C({
     if (!ok(v.gli)) return null;
     if (v.ctx === 'c') {
       if (!ok(v.peso)) return null;
+      if (v._ped) return { label: 'Infusão', value: f(0.05 * v.peso, 2) + '–' + f(0.1 * v.peso, 2), unit: 'UI/h', extra: [['Bolus', 'Não recomendado em crianças']],
+        interp: 'ISPAD: 0,05–0,1 UI/kg/h, iniciar 1 h após o início da hidratação. Queda da glicemia ≤ 100 mg/dL/h.', level: 'warn' };
       return { label: 'Infusão inicial', value: f(0.1 * v.peso, 1), unit: 'UI/h', extra: [['Bolus opcional', f(0.1 * v.peso, 1) + ' UI IV'], ['Alternativa sem bolus', f(0.14 * v.peso, 1) + ' UI/h']],
         interp: 'Só iniciar com K ≥ 3,3 mEq/L. Meta de queda: 50–75 mg/dL/h. Adicionar SG 5% quando glicemia < 250.', level: 'warn' };
     }
+    if (v._ped) return { value: '—', interp: 'Protocolo de hiperglicemia do adulto: não aplicar em crianças. Seguir protocolo pediátrico local.', level: 'warn' };
     if (v.gli < 180) return { value: '—', interp: 'Glicemia < 180 mg/dL: insulina IV não indicada', level: 'ok' };
     const r = Math.round((v.gli / 100) * 2) / 2;
     return { label: 'Bolus e infusão', value: f(r, 1), unit: 'UI + UI/h', interp: 'Glicemia ÷ 100, arredondado a 0,5 UI. Meta 140–180 mg/dL; glicemia capilar a cada 1 h.', level: 'warn' };
