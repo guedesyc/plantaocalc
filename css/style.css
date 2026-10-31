@@ -65,7 +65,16 @@ main { max-width: 1080px; margin: 0 auto; padding: 0 16px 48px; }
 .search:focus-within { border-color: var(--accent); }
 .search input { flex: 1; border: 0; outline: 0; background: transparent; font-size: 16px; color: var(--text); min-width: 0; }
 
-.chips { display: flex; gap: 8px; overflow-x: auto; padding: 14px 0 6px; margin: 0 -16px; padding-inline: 16px; scrollbar-width: none; }
+.chips-wrap { position: relative; margin: 0 -16px; }
+.chips { display: flex; gap: 8px; overflow-x: auto; padding: 14px 16px 6px; scrollbar-width: none; scroll-padding-inline: 48px; }
+.chips-arrow {
+  position: absolute; top: 14px; bottom: 6px; z-index: 2; width: 52px; display: flex; align-items: center; border: 0; cursor: pointer; color: var(--text); padding: 0 8px;
+}
+.chips-arrow svg { width: 32px; height: 32px; padding: 6px; border-radius: 50%; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); }
+.chips-arrow:hover svg { border-color: var(--accent); color: var(--accent); }
+.chips-arrow.left { left: 0; justify-content: flex-start; background: linear-gradient(to right, var(--bg) 55%, transparent); }
+.chips-arrow.right { right: 0; justify-content: flex-end; background: linear-gradient(to left, var(--bg) 55%, transparent); }
+.chips-arrow[hidden] { display: none; }
 .chips::-webkit-scrollbar { display: none; }
 .chip { flex: none; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; font-size: 14px; white-space: nowrap; }
 .chip.active { background: var(--accent); border-color: var(--accent); color: var(--surface); }

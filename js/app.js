@@ -44,12 +44,17 @@
           <input id="q" type="search" placeholder="Buscar: PaFi, Glasgow, MELD…" value="${esc(ui.q)}" autocomplete="off">
         </label>
       </section>
-      <nav class="chips" id="chips">
-        <button class="chip" data-cat="all">Todas</button>
-        ${favs.length ? '<button class="chip" data-cat="fav">★ Favoritas</button>' : ''}
-        ${CATS.map((c) => `<button class="chip" data-cat="${c.id}">${c.icon} ${c.name}</button>`).join('')}
-      </nav>
+      <div class="chips-wrap">
+        <button class="chips-arrow left" id="chipsPrev" aria-label="Categorias anteriores"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <nav class="chips" id="chips">
+          <button class="chip" data-cat="all">Todas</button>
+          ${favs.length ? '<button class="chip" data-cat="fav">★ Favoritas</button>' : ''}
+          ${CATS.map((c) => `<button class="chip" data-cat="${c.id}">${c.icon} ${c.name}</button>`).join('')}
+        </nav>
+        <button class="chips-arrow right" id="chipsNext" aria-label="Próximas categorias"><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button>
+      </div>
       <div id="list"></div>`;
+    setupChipArrows();
     const q = $('#q');
     q.oninput = () => { ui.q = q.value; renderList(); };
     $('#chips').onclick = (e) => {
@@ -61,8 +66,28 @@
     renderList();
   }
 
+  /* Setas de rolagem das categorias: aparecem só quando há conteúdo escondido daquele lado */
+  function setupChipArrows() {
+    const nav = $('#chips'), prev = $('#chipsPrev'), next = $('#chipsNext');
+    const sync = () => {
+      prev.hidden = nav.scrollLeft <= 4;
+      next.hidden = nav.scrollLeft + nav.clientWidth >= nav.scrollWidth - 4;
+    };
+    const step = (dir) => nav.scrollBy({ left: dir * nav.clientWidth * 0.7, behavior: 'smooth' });
+    prev.onclick = () => step(-1);
+    next.onclick = () => step(1);
+    nav.addEventListener('scroll', sync, { passive: true });
+    nav.addEventListener('wheel', (e) => {
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { nav.scrollLeft += e.deltaY; e.preventDefault(); }
+    }, { passive: false });
+    addEventListener('resize', sync);
+    sync();
+  }
+
   function renderList() {
     document.querySelectorAll('#chips .chip').forEach((b) => b.classList.toggle('active', b.dataset.cat === ui.cat));
+    const act = $('#chips .chip.active');
+    if (act) act.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     const list = $('#list');
     const q = norm(ui.q.trim());
     let items = CALCS;
